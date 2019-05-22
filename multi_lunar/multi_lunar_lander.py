@@ -1,7 +1,7 @@
 import math
 import numpy as np
 
-
+from gym import spaces
 from Box2D.b2 import edgeShape, circleShape, fixtureDef, polygonShape, revoluteJointDef
 from gym.envs.box2d.lunar_lander import LunarLander, ContactDetector
 from gym.envs.box2d.lunar_lander \
@@ -12,10 +12,14 @@ from gym.envs.box2d.lunar_lander \
 
 from . import rendering
 
-CHUNKS = 15
-
+CHUNKS = 11
 
 class MyLunarLander(LunarLander):
+
+    def __init__(self, goal_range=(1,4)):
+        self.goal_range = goal_range
+        super().__init__()
+        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32)
 
     def reset(self, goal=None):
         self._destroy()
@@ -32,7 +36,7 @@ class MyLunarLander(LunarLander):
 
         self.helipad_x = []
         if goal is None:
-            goal = np.random.randint(1, 4)
+            goal = np.random.randint(self.goal_range[0], self.goal_range[1])
         self.goal = goal
         self.goal_x = chunk_x[CHUNKS * goal // 4]
         self.goal_y = H / 4
@@ -238,6 +242,8 @@ class MyLunarLander(LunarLander):
             reward = +100
         state = np.array(state)
         state.flags.writeable = False
+        print(state)
+        print(goal_x)
         return state, reward, done, {}
 
     def _draw(self):
