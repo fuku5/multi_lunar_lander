@@ -19,7 +19,9 @@ class MyLunarLander(LunarLander):
     def __init__(self, goal_range=(1,4)):
         self.goal_range = goal_range
         super().__init__()
-        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(10,), dtype=np.float32)
+        self.num_goal = goal_range[1] - goal_range[0]
+        observation_space = 8 if self.num_goal == 1 else 9
+        self.observation_space = spaces.Box(-np.inf, np.inf, shape=(observation_space,), dtype=np.float32)
 
     def reset(self, goal=None):
         self._destroy()
@@ -216,8 +218,8 @@ class MyLunarLander(LunarLander):
             1.0 if self.legs[0].ground_contact else 0.0,
             1.0 if self.legs[1].ground_contact else 0.0,
             goal_x, goal_y
-        ]
-        assert len(state) == 10  # 8
+            ][:env.observation_space.shape[0]]
+        #assert len(state) == env.observation_space.shape[0]  # 8
 
         reward = 0
         shaping = \
