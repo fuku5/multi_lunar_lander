@@ -218,7 +218,7 @@ class MyLunarLander(LunarLander):
             1.0 if self.legs[0].ground_contact else 0.0,
             1.0 if self.legs[1].ground_contact else 0.0,
             goal_x, goal_y
-            ][:env.observation_space.shape[0]]
+            ][:self.observation_space.shape[0]]
         #assert len(state) == env.observation_space.shape[0]  # 8
 
         reward = 0
