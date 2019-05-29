@@ -242,8 +242,6 @@ class MyLunarLander(LunarLander):
             reward = +100
         state = np.array(state)
         state.flags.writeable = False
-        print(state)
-        print(goal_x)
         return state, reward, done, {}
 
     def _draw(self):
