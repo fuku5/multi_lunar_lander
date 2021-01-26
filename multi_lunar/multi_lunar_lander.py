@@ -10,7 +10,6 @@ from gym.envs.box2d.lunar_lander \
     LEG_W, LEG_H, LEG_SPRING_TORQUE, SIDE_ENGINE_HEIGHT, SIDE_ENGINE_AWAY, \
     VIEWPORT_W, VIEWPORT_H
 
-from . import rendering
 
 CHUNKS = 11
 
@@ -247,63 +246,18 @@ class MyLunarLander(LunarLander):
         return state, reward, done, {}
 
     def _draw(self):
-        #from gym.envs.classic_control import rendering
-        #import mybox2d.rendering as rendering
+        from . import rendering
         if self.viewer is None:
             self.viewer = rendering.MyViewer(VIEWPORT_W, VIEWPORT_H)
             self.viewer.set_bounds(0, VIEWPORT_W / SCALE,
                                    0, VIEWPORT_H / SCALE)
-        if False:
+        if True:
             for obj in self.particles:
                 obj.ttl -= 0.15
                 obj.color1 = (max(0.2, 0.2 + obj.ttl),
                               max(0.2, 0.5 * obj.ttl), max(0.2, 0.5 * obj.ttl))
                 obj.color2 = (max(0.2, 0.2 + obj.ttl),
                               max(0.2, 0.5 * obj.ttl), max(0.2, 0.5 * obj.ttl))
-
-        self._clean_particles(False)
-
-        for p in self.sky_polys:
-            self.viewer.draw_polygon(p, color=(0, 0, 0))
-
-        for obj in self.particles + self.drawlist:
-            for f in obj.fixtures:
-                trans = f.body.transform
-                if type(f.shape) is circleShape:
-                    t = rendering.Transform(translation=trans * f.shape.pos)
-                    self.viewer.draw_circle(
-                        f.shape.radius, 20, color=obj.color1).add_attr(t)
-                    self.viewer.draw_circle(
-                        f.shape.radius, 20, color=obj.color2, filled=False, linewidth=2).add_attr(t)
-                else:
-                    path = [trans * v for v in f.shape.vertices]
-                    self.viewer.draw_polygon(path, color=obj.color1)
-                    path.append(path[0])
-                    self.viewer.draw_polyline(
-                        path, color=obj.color2, linewidth=2)
-
-        for x in self.helipad_x:
-            flagy1 = self.helipad_y
-            flagy2 = flagy1 + 50 / SCALE
-            self.viewer.draw_polyline(
-                [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
-            self.viewer.draw_polygon([(x, flagy2), (x, flagy2 - 10 / SCALE),
-                                      (x + 25 / SCALE, flagy2 - 5 / SCALE)], color=(0.8, 0.8, 0))
-
-
-    def _draw(self):
-        #from gym.envs.classic_control import rendering
-        if self.viewer is None:
-            #self.viewer = rendering.Viewer(VIEWPORT_W, VIEWPORT_H)
-            self.viewer = rendering.MyViewer(VIEWPORT_W, VIEWPORT_H)
-            self.viewer.set_bounds(0, VIEWPORT_W / SCALE,
-                                   0, VIEWPORT_H / SCALE)
-        for obj in self.particles:
-            obj.ttl -= 0.15
-            obj.color1 = (max(0.2, 0.2 + obj.ttl),
-                          max(0.2, 0.5 * obj.ttl), max(0.2, 0.5 * obj.ttl))
-            obj.color2 = (max(0.2, 0.2 + obj.ttl),
-                          max(0.2, 0.5 * obj.ttl), max(0.2, 0.5 * obj.ttl))
 
         self._clean_particles(False)
 
