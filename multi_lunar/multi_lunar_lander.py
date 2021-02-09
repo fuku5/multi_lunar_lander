@@ -15,14 +15,15 @@ CHUNKS = 11
 
 class MyLunarLander(LunarLander):
 
-    def __init__(self, goal_range=(1,4)):
+    def __init__(self, start_range=(1,4), goal_range=(1,4)):
+        self.start_range = start_range
         self.goal_range = goal_range
         super().__init__()
         self.num_goal = goal_range[1] - goal_range[0]
         observation_space = 8 if self.num_goal == 1 else 9
         self.observation_space = spaces.Box(-np.inf, np.inf, shape=(observation_space,), dtype=np.float32)
 
-    def reset(self, goal=None):
+    def reset(self, start=None, goal=None):
         self._destroy()
         self.world.contactListener_keepref = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_keepref
@@ -37,7 +38,7 @@ class MyLunarLander(LunarLander):
 
         self.helipad_x = []
         if goal is None:
-            goal = np.random.randint(self.goal_range[0], self.goal_range[1])
+            goal = np.random.randint(*(self.goal_range))
         self.goal = goal
         self.goal_x = chunk_x[CHUNKS * goal // 4]
         self.goal_y = H / 4
@@ -53,13 +54,6 @@ class MyLunarLander(LunarLander):
 
         smooth_y = [0.33 * (height[i - 1] + height[i + 0] + height[i + 1])
                     for i in range(CHUNKS)]
-        """
-        # for predictor
-        self.ground_level = np.array(smooth_y)
-        self.ground_level -= self.helipad_y
-        self.ground_level /= VIEWPORT_W / SCALE / 2
-        self.ground_level.flags.writeable = False
-        """
 
         self.moon = self.world.CreateStaticBody(
             shapes=edgeShape(vertices=[(0, 0), (W, 0)]))
@@ -76,7 +70,10 @@ class MyLunarLander(LunarLander):
         self.moon.color1 = (0.0, 0.0, 0.0)
         self.moon.color2 = (0.0, 0.0, 0.0)
 
-        initial_x = VIEWPORT_W / SCALE / 2
+        #initial_x = VIEWPORT_W / SCALE / 2
+        if start is None:
+            start = np.random.randint(*(self.start_range))
+        initial_x = chunk_x[CHUNKS * start // 4]
         initial_y = VIEWPORT_H / SCALE
         self.lander = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
@@ -301,15 +298,15 @@ class MyLunarLander(LunarLander):
 def main():
     game = MyLunarLander()
 
-    def test(goal):
-        game.reset(goal)
+    def test(start, goal):
+        game.reset(start, goal)
         import time
         for i in range(100):
             game.step(np.random.randint(3))
             game.render()
             time.sleep(1/30) 
     
-    test(1)
+    test(1,2)
     test(2)
     test(3)
     
