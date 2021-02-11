@@ -229,7 +229,6 @@ class MyLunarLander(LunarLander):
             - 100 * np.sqrt(state[2]**2 + state[3]**2) \
             - 100 * abs(state[4]) + 10 * state[6] + 10 * state[7] \
             for goal in self.goal_indexes}
-        #print(shapings)
         # And ten points for legs contact, the idea is if you
         # lose contact again after landing, you get negative reward
         if self.prev_shapings is not None:
@@ -255,10 +254,7 @@ class MyLunarLander(LunarLander):
         # for debug
         for goal in self.goal_indexes:
             self.rewards_sum[goal] += rewards[goal]
-        print(self.rewards_sum, self.goal, self.rewards_sum[self.goal])
-        import time
-        time.sleep(0.01)
-        return state, rewards[self.goal], done, {'rewards': rewards}
+        return state, rewards[self.goal], done, {'rewards': rewards, 'rewards_sum': self.rewards_sum}
 
     def _draw(self):
         if __name__ == '__main__':
