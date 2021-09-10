@@ -15,9 +15,13 @@ CHUNKS = 11
 
 class MyLunarLander(LunarLander):
 
-    def __init__(self, start_indexes=(2, 5, 8), goal_indexes=(2, 5, 8)):
+    def __init__(self, start_indexes=(2, 5, 8), goal_indexes=(2, 5, 8), flatten=False, noflag=False, ground_marker=False, no_particles=False):
         self.start_indexes = start_indexes
         self.goal_indexes = goal_indexes
+        self.flatten = flatten
+        self.noflag = noflag
+        self.ground_marker = ground_marker
+        self.no_particles = no_particles
         super().__init__()
         observation_space = 8 if len(goal_indexes) == 1 else 9
         self.observation_space = spaces.Box(-np.inf, np.inf, shape=(observation_space,), dtype=np.float32)
@@ -37,7 +41,11 @@ class MyLunarLander(LunarLander):
 
         self.chunk_x = [W / (CHUNKS - 1) * i for i in range(CHUNKS)]
 
-        height = self.np_random.uniform(0, H / 2, size=(CHUNKS + 1,))
+        if self.flatten:
+            height = np.ones(CHUNKS+1) * H / 4
+        else:
+            height = self.np_random.uniform(0, H / 2, size=(CHUNKS + 1,))
+
 
         self.helipad_x = []
         if goal is None:
@@ -273,7 +281,7 @@ class MyLunarLander(LunarLander):
                 obj.color2 = (max(0.2, 0.2 + obj.ttl),
                               max(0.2, 0.5 * obj.ttl), max(0.2, 0.5 * obj.ttl))
 
-        self._clean_particles(False)
+        self._clean_particles(self.no_particles)
 
         for p in self.sky_polys:
             self.viewer.draw_polygon(p, color=(0, 0, 0))
@@ -294,13 +302,24 @@ class MyLunarLander(LunarLander):
                     self.viewer.draw_polyline(
                         path, color=obj.color2, linewidth=2)
 
-        for x in self.helipad_x:
-            flagy1 = self.helipad_y
-            flagy2 = flagy1 + 50 / SCALE
-            self.viewer.draw_polyline(
-                [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
-            self.viewer.draw_polygon([(x, flagy2), (x, flagy2 - 10 / SCALE),
-                                      (x + 25 / SCALE, flagy2 - 5 / SCALE)], color=(0.8, 0.8, 0))
+        if not self.noflag:
+            for x in self.helipad_x:
+                flagy1 = self.helipad_y
+                flagy2 = flagy1 + 50 / SCALE
+                self.viewer.draw_polyline(
+                    [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
+                self.viewer.draw_polygon([(x, flagy2), (x, flagy2 - 10 / SCALE),
+                                          (x + 25 / SCALE, flagy2 - 5 / SCALE)], color=(0.8, 0.8, 0))
+        if self.ground_marker:
+            for x in self.chunk_x:
+                flagy1 = self.helipad_y
+                flagy2 = flagy1 + 5 / SCALE
+                self.viewer.draw_polyline(
+                    [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
+
+
+
+
 
 
     def render(self, mode='human', close=False):
