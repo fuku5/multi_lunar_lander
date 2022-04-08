@@ -12,22 +12,25 @@ from gym.envs.box2d.lunar_lander \
 
 
 CHUNKS = 11
+T_CHANGE_GOAL = 50
 
 class MyLunarLander(LunarLander):
 
-    def __init__(self, start_indexes=(2, 5, 8), goal_indexes=(2, 5, 8), flatten=False, noflag=False, ground_marker=False, no_particles=False):
+    def __init__(self, start_indexes=(2, 5, 8), goal_indexes=(2, 5, 8), flatten=False, noflag=False, ground_marker=False, no_particles=False, will_change_goal=False):
         self.start_indexes = start_indexes
         self.goal_indexes = goal_indexes
         self.flatten = flatten
         self.noflag = noflag
         self.ground_marker = ground_marker
         self.no_particles = no_particles
+        self.will_change_goal = will_change_goal
         super().__init__()
         observation_space = 8 if len(goal_indexes) == 1 else 9
         self.observation_space = spaces.Box(-np.inf, np.inf, shape=(observation_space,), dtype=np.float32)
 
 
     def reset(self, start=None, goal=None):
+        self.i_step = 0
         self._destroy()
         self.world.contactListener_keepref = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_keepref
@@ -156,6 +159,11 @@ class MyLunarLander(LunarLander):
             assert self.action_space.contains(
                 action), "%r (%s) invalid " % (action, type(action))
 
+        # change goal
+        if self.i_step == T_CHANGE_GOAL and self.will_change_goal:
+            new_goal = np.random.choice(self.goal_indexes)
+            print('goal changed {} -> {}'.format(self.goal, new_goal))
+            self.goal = new_goal
         # Engines
         tip = (math.sin(self.lander.angle), math.cos(self.lander.angle))
         side = (-tip[1], tip[0])
@@ -262,6 +270,7 @@ class MyLunarLander(LunarLander):
         # for debug
         for goal in self.goal_indexes:
             self.rewards_sum[goal] += rewards[goal]
+        self.i_step += 1
         return state, rewards[self.goal], done, {'rewards': rewards, 'rewards_sum': self.rewards_sum}
 
     def _draw(self):
