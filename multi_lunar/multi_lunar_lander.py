@@ -12,45 +12,61 @@ from gym.envs.box2d.lunar_lander \
 
 
 CHUNKS = 11
+T_CHANGE_GOAL = 50
 
 class MyLunarLander(LunarLander):
 
-    def __init__(self, start_range=(1,4), goal_range=(1,4)):
-        self.start_range = start_range
-        self.goal_range = goal_range
+    def __init__(self, start_indexes=(2, 5, 8), goal_indexes=(2, 5, 8), flatten=False, noflag=False, ground_marker=False, no_particles=False, will_change_goal=False):
+        self.start_indexes = start_indexes
+        self.goal_indexes = goal_indexes
+        self.flatten = flatten
+        self.noflag = noflag
+        self.ground_marker = ground_marker
+        self.no_particles = no_particles
+        self.will_change_goal = will_change_goal
         super().__init__()
-        self.num_goal = goal_range[1] - goal_range[0]
-        observation_space = 8 if self.num_goal == 1 else 9
+        observation_space = 8 if len(goal_indexes) == 1 else 9
         self.observation_space = spaces.Box(-np.inf, np.inf, shape=(observation_space,), dtype=np.float32)
 
+
     def reset(self, start=None, goal=None):
+        self.i_step = 0
         self._destroy()
         self.world.contactListener_keepref = ContactDetector(self)
         self.world.contactListener = self.world.contactListener_keepref
         self.game_over = False
-        self.prev_shaping = None
+        self.prev_shapings = None
+        # for debug
+        self.rewards_sum = {goal: 0. for goal in self.goal_indexes}
 
         W = VIEWPORT_W / SCALE
         H = VIEWPORT_H / SCALE
 
-        height = self.np_random.uniform(0, H / 2, size=(CHUNKS + 1,))
-        chunk_x = [W / (CHUNKS - 1) * i for i in range(CHUNKS)]
+        self.chunk_x = [W / (CHUNKS - 1) * i for i in range(CHUNKS)]
+
+        if self.flatten:
+            height = np.ones(CHUNKS+1) * H / 4
+        else:
+            height = self.np_random.uniform(0, H / 2, size=(CHUNKS + 1,))
+
 
         self.helipad_x = []
         if goal is None:
-            goal = np.random.randint(*(self.goal_range))
+            goal = np.random.choice(self.goal_indexes)
+
         self.goal = goal
-        self.goal_x = chunk_x[CHUNKS * goal // 4]
+        self.goal_x = self.chunk_x[goal]
+        #self.goals_x = [self.chunk_x[i] for i in self.goal_indexes]
         self.goal_y = H / 4
 
-        self.helipad_x.append(chunk_x[CHUNKS * goal // 4 - 1])
-        self.helipad_x.append(chunk_x[CHUNKS * goal // 4 + 1])
+        self.helipad_x.append(self.chunk_x[goal - 1])
+        self.helipad_x.append(self.chunk_x[goal + 1])
         self.helipad_y = H / 4
-        height[CHUNKS * goal // 4 - 2] = self.helipad_y
-        height[CHUNKS * goal // 4 - 1] = self.helipad_y
-        height[CHUNKS * goal // 4 + 0] = self.helipad_y
-        height[CHUNKS * goal // 4 + 1] = self.helipad_y
-        height[CHUNKS * goal // 4 + 2] = self.helipad_y
+        height[goal - 2] = self.helipad_y
+        height[goal - 1] = self.helipad_y
+        height[goal + 0] = self.helipad_y
+        height[goal + 1] = self.helipad_y
+        height[goal + 2] = self.helipad_y
 
         smooth_y = [0.33 * (height[i - 1] + height[i + 0] + height[i + 1])
                     for i in range(CHUNKS)]
@@ -59,8 +75,8 @@ class MyLunarLander(LunarLander):
             shapes=edgeShape(vertices=[(0, 0), (W, 0)]))
         self.sky_polys = []
         for i in range(CHUNKS - 1):
-            p1 = (chunk_x[i],   smooth_y[i])
-            p2 = (chunk_x[i + 1], smooth_y[i + 1])
+            p1 = (self.chunk_x[i],   smooth_y[i])
+            p2 = (self.chunk_x[i + 1], smooth_y[i + 1])
             self.moon.CreateEdgeFixture(
                 vertices=[p1, p2],
                 density=0,
@@ -72,8 +88,8 @@ class MyLunarLander(LunarLander):
 
         #initial_x = VIEWPORT_W / SCALE / 2
         if start is None:
-            start = np.random.randint(*(self.start_range))
-        initial_x = chunk_x[CHUNKS * start // 4]
+            start = np.random.choice(self.start_indexes)
+        initial_x = self.chunk_x[start]
         initial_y = VIEWPORT_H / SCALE
         self.lander = self.world.CreateDynamicBody(
             position=(initial_x, initial_y),
@@ -133,6 +149,7 @@ class MyLunarLander(LunarLander):
 
         self.drawlist = [self.lander] + self.legs
 
+
         return self.step(np.array([0, 0]) if self.continuous else 0)[0]
 
     def step(self, action):
@@ -142,6 +159,11 @@ class MyLunarLander(LunarLander):
             assert self.action_space.contains(
                 action), "%r (%s) invalid " % (action, type(action))
 
+        # change goal
+        if self.i_step == T_CHANGE_GOAL and self.will_change_goal:
+            new_goal = np.random.choice(self.goal_indexes)
+            print('goal changed {} -> {}'.format(self.goal, new_goal))
+            self.goal = new_goal
         # Engines
         tip = (math.sin(self.lander.angle), math.cos(self.lander.angle))
         side = (-tip[1], tip[0])
@@ -200,8 +222,8 @@ class MyLunarLander(LunarLander):
 
         pos = self.lander.position
         vel = self.lander.linearVelocity
-        goal_x = (self.goal_x - VIEWPORT_W / SCALE / 2) / \
-            (VIEWPORT_W / SCALE / 2)
+        goal_xs = {goal: (self.chunk_x[goal] - VIEWPORT_W / SCALE / 2) / \
+            (VIEWPORT_W / SCALE / 2) for goal in self.goal_indexes}
         goal_y = (self.goal_y - self.helipad_y) / (VIEWPORT_W / SCALE / 2)
         state = [
             (pos.x - VIEWPORT_W / SCALE / 2) / (VIEWPORT_W / SCALE / 2),
@@ -213,37 +235,49 @@ class MyLunarLander(LunarLander):
             20.0 * self.lander.angularVelocity / FPS,
             1.0 if self.legs[0].ground_contact else 0.0,
             1.0 if self.legs[1].ground_contact else 0.0,
-            goal_x, goal_y
+            goal_xs[self.goal], goal_y
             ][:self.observation_space.shape[0]]
         #assert len(state) == env.observation_space.shape[0]  # 8
 
-        reward = 0
-        shaping = \
-            - 100 * np.sqrt((state[0] - goal_x)**2 + (state[1] - goal_y)**2) \
+        rewards = {goal: 0. for goal in self.goal_indexes}
+        shapings = {goal: \
+            - 100 * np.sqrt((state[0] - goal_xs[goal])**2 + (state[1] - goal_y)**2) \
             - 100 * np.sqrt(state[2]**2 + state[3]**2) \
-            - 100 * abs(state[4]) + 10 * state[6] + 10 * state[7]
+            - 100 * abs(state[4]) + 10 * state[6] + 10 * state[7] \
+            for goal in self.goal_indexes}
         # And ten points for legs contact, the idea is if you
         # lose contact again after landing, you get negative reward
-        if self.prev_shaping is not None:
-            reward = shaping - self.prev_shaping
-        self.prev_shaping = shaping
+        if self.prev_shapings is not None:
+            for goal in self.goal_indexes:
+                rewards[goal] = shapings[goal] - self.prev_shapings[goal]
+        self.prev_shapings = shapings
 
-        reward -= m_power * 0.30  # less fuel spent is better, about -30 for heurisic landing
-        reward -= s_power * 0.03
+        for goal in self.goal_indexes:
+            rewards[goal] -= m_power * 0.30  # less fuel spent is better, about -30 for heurisic landing
+            rewards[goal] -= s_power * 0.03
 
         done = False
         if self.game_over or abs(state[0]) >= 1.0:
             done = True
-            reward = -100
+            for goal in self.goal_indexes:
+                rewards[goal]= -100
         if not self.lander.awake:
             done = True
-            reward = +100
+            for goal in self.goal_indexes:
+                rewards[goal]= +100
         state = np.array(state)
         state.flags.writeable = False
-        return state, reward, done, {}
+        # for debug
+        for goal in self.goal_indexes:
+            self.rewards_sum[goal] += rewards[goal]
+        self.i_step += 1
+        return state, rewards[self.goal], done, {'rewards': rewards, 'rewards_sum': self.rewards_sum}
 
     def _draw(self):
-        from . import rendering
+        if __name__ == '__main__':
+            import rendering
+        else:
+            from . import rendering
         if self.viewer is None:
             self.viewer = rendering.MyViewer(VIEWPORT_W, VIEWPORT_H)
             self.viewer.set_bounds(0, VIEWPORT_W / SCALE,
@@ -256,7 +290,7 @@ class MyLunarLander(LunarLander):
                 obj.color2 = (max(0.2, 0.2 + obj.ttl),
                               max(0.2, 0.5 * obj.ttl), max(0.2, 0.5 * obj.ttl))
 
-        self._clean_particles(False)
+        self._clean_particles(self.no_particles)
 
         for p in self.sky_polys:
             self.viewer.draw_polygon(p, color=(0, 0, 0))
@@ -277,13 +311,24 @@ class MyLunarLander(LunarLander):
                     self.viewer.draw_polyline(
                         path, color=obj.color2, linewidth=2)
 
-        for x in self.helipad_x:
-            flagy1 = self.helipad_y
-            flagy2 = flagy1 + 50 / SCALE
-            self.viewer.draw_polyline(
-                [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
-            self.viewer.draw_polygon([(x, flagy2), (x, flagy2 - 10 / SCALE),
-                                      (x + 25 / SCALE, flagy2 - 5 / SCALE)], color=(0.8, 0.8, 0))
+        if not self.noflag:
+            for x in self.helipad_x:
+                flagy1 = self.helipad_y
+                flagy2 = flagy1 + 50 / SCALE
+                self.viewer.draw_polyline(
+                    [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
+                self.viewer.draw_polygon([(x, flagy2), (x, flagy2 - 10 / SCALE),
+                                          (x + 25 / SCALE, flagy2 - 5 / SCALE)], color=(0.8, 0.8, 0))
+        if self.ground_marker:
+            for x in self.chunk_x:
+                flagy1 = self.helipad_y
+                flagy2 = flagy1 + 5 / SCALE
+                self.viewer.draw_polyline(
+                    [(x, flagy1), (x, flagy2)], color=(1, 1, 1))
+
+
+
+
 
 
     def render(self, mode='human', close=False):
@@ -296,19 +341,24 @@ class MyLunarLander(LunarLander):
         return self.viewer.render(return_rgb_array=mode == 'rgb_array')
 
 def main():
+    np.random.seed(100)
     game = MyLunarLander()
+    game.seed(100)
 
     def test(start, goal):
+        assert start == 2 or start == 5 or start == 8
+        assert goal == 2 or goal == 5 or goal == 8
         game.reset(start, goal)
         import time
         for i in range(100):
-            game.step(np.random.randint(3))
+            state, reward, done, info = game.step(np.random.randint(3))
+            print(reward, info)
             game.render()
             time.sleep(1/30) 
     
-    test(1,2)
-    test(2)
-    test(3)
+    test(2,8)
+    test(2,5)
+    test(5,5)
     
 
 if __name__ == '__main__':
