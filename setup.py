@@ -1,15 +1,19 @@
+from os.path import splitext
+
 from setuptools import setup
+from setuptools import find_packages
+
+
+def _requires_from_file(filename):
+    return open(filename).read().splitlines()
 
 
 setup(
     name='multiple_lunar_lander',
-    version='0.0.5',
+    version="0.0.6",
     description='openai gym lunar lander with changing goals',
-    long_description='README.md',
-    author='YF',
-    author_email='',
-    url='',
-    install_requires=['numpy', 'gym', 'pyglet==1.3.2'],
-    license='licence',
-    packages=['multi_lunar']
+    packages=['multi_lunar'],
+    include_package_data=True,
+    zip_safe=False,
+    install_requires=_requires_from_file('requirements.txt'),
 )
